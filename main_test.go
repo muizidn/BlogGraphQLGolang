@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +13,7 @@ func TestAllPostsQuery(t *testing.T) {
 	// Create a test request with the GraphQL query
 	query := `
 	query AllPosts {
-		posts(first: 20) {
+		posts(first: 20, where: { orderby: { field: DATE, order: DESC } }) {
 			edges {
 				node {
 					title
@@ -67,6 +68,8 @@ func TestAllPostsQuery(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatal(err)
 	}
+
+	fmt.Println(response)
 
 	data, dataExists := response["data"].(map[string]interface{})
 	if !dataExists {

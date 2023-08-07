@@ -130,6 +130,54 @@ var postConnectionType = graphql.NewObject(
 	},
 )
 
+var orderByFieldEnum = graphql.NewEnum(graphql.EnumConfig{
+	Name: "OrderByField",
+	Values: graphql.EnumValueConfigMap{
+		"DATE": &graphql.EnumValueConfig{
+			Value: "DATE",
+		},
+		// Add more enum values here if needed
+	},
+})
+
+// Define enum values for OrderDirection
+var orderDirectionEnum = graphql.NewEnum(graphql.EnumConfig{
+	Name: "OrderDirection",
+	Values: graphql.EnumValueConfigMap{
+		"ASC": &graphql.EnumValueConfig{
+			Value: "ASC",
+		},
+		"DESC": &graphql.EnumValueConfig{
+			Value: "DESC",
+		},
+	},
+})
+
+var orderByInputType = graphql.NewInputObject(
+	graphql.InputObjectConfig{
+		Name: "OrderByInput",
+		Fields: graphql.InputObjectConfigFieldMap{
+			"field": &graphql.InputObjectFieldConfig{
+				Type: orderByFieldEnum,
+			},
+			"order": &graphql.InputObjectFieldConfig{
+				Type: orderDirectionEnum,
+			},
+		},
+	},
+)
+
+var whereInputType = graphql.NewInputObject(
+	graphql.InputObjectConfig{
+		Name: "WhereInput",
+		Fields: graphql.InputObjectConfigFieldMap{
+			"orderby": &graphql.InputObjectFieldConfig{
+				Type: orderByInputType,
+			},
+		},
+	},
+)
+
 var queryType = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "Query",
@@ -143,6 +191,9 @@ var queryType = graphql.NewObject(
 					"after": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
+					"where": &graphql.ArgumentConfig{
+						Type: whereInputType,
+					},
 				},
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 					firstArg, _ := params.Args["first"].(int)
@@ -155,16 +206,19 @@ var queryType = graphql.NewObject(
 						offset, _ = strconv.Atoi(afterArg)
 					}
 
+					sortedPosts, _ := orderPostsBy(&params)
+
 					var hasNextPage bool
 					var endCursor string
 					postEdges := []PostEdge{}
-					for i := offset; i < offset+firstArg && i < len(posts); i++ {
+
+					for i := offset; i < offset+firstArg && i < len(sortedPosts); i++ {
 						postEdges = append(postEdges, PostEdge{
-							Node:   posts[i],
+							Node:   sortedPosts[i],
 							Cursor: strconv.Itoa(i),
 						})
 					}
-					if offset+firstArg < len(posts) {
+					if offset+firstArg < len(sortedPosts) {
 						hasNextPage = true
 						endCursor = strconv.Itoa(offset + firstArg)
 					} else {
@@ -186,6 +240,24 @@ var queryType = graphql.NewObject(
 		},
 	},
 )
+
+func orderPostsBy(params *graphql.ResolveParams) ([]Post, error) {
+	// Extract the "where" argument
+	where, _ := params.Args["where"].(map[string]interface{})
+
+	// Extract the "orderby" argument
+	orderBy, _ := where["orderby"].(map[string]interface{})
+	field, _ := orderBy["field"]
+	order, _ := orderBy["order"]
+
+	var sortedPosts []Post
+	sortedPosts = append(sortedPosts, posts...)
+
+	if field == "DATE" && order == "DESC" {
+		// Implement sorting logic here
+	}
+	return sortedPosts, nil
+}
 
 // Sample data for demonstration purposes
 var posts = []Post{
