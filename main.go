@@ -5,15 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/graphql-go/graphql"
 )
-
-type Book struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
-}
 
 var books []Book
 
@@ -23,6 +18,9 @@ func init() {
 		{ID: "1", Title: "Book 1", Author: "Author 1"},
 		{ID: "2", Title: "Book 2", Author: "Author 2"},
 		{ID: "3", Title: "Book 3", Author: "Author 3"},
+		{ID: "4", Title: "Book 4", Author: "Author 4"},
+		{ID: "5", Title: "Book 5", Author: "Author 5"},
+		// Add more sample books here
 	}
 }
 
@@ -39,6 +37,49 @@ var bookType = graphql.NewObject(
 			"author": &graphql.Field{
 				Type: graphql.String,
 			},
+			// Add other fields as needed
+		},
+	},
+)
+
+var bookEdgeType = graphql.NewObject(
+	graphql.ObjectConfig{
+		Name: "BookEdge",
+		Fields: graphql.Fields{
+			"node": &graphql.Field{
+				Type: bookType,
+			},
+			"cursor": &graphql.Field{
+				Type: graphql.String,
+			},
+		},
+	},
+)
+
+var bookConnectionType = graphql.NewObject(
+	graphql.ObjectConfig{
+		Name: "BookConnection",
+		Fields: graphql.Fields{
+			"edges": &graphql.Field{
+				Type: graphql.NewList(bookEdgeType),
+			},
+			"pageInfo": &graphql.Field{
+				Type: pageInfoType,
+			},
+		},
+	},
+)
+
+var pageInfoType = graphql.NewObject(
+	graphql.ObjectConfig{
+		Name: "PageInfo",
+		Fields: graphql.Fields{
+			"hasNextPage": &graphql.Field{
+				Type: graphql.Boolean,
+			},
+			"endCursor": &graphql.Field{
+				Type: graphql.String,
+			},
 		},
 	},
 )
@@ -47,29 +88,53 @@ var queryType = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "Query",
 		Fields: graphql.Fields{
-			"book": &graphql.Field{
-				Type:        bookType,
-				Description: "Get a single book by ID",
+			"books": &graphql.Field{
+				Type: bookConnectionType,
 				Args: graphql.FieldConfigArgument{
-					"id": &graphql.ArgumentConfig{
+					"first": &graphql.ArgumentConfig{
+						Type: graphql.Int,
+					},
+					"after": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 				},
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					id, _ := params.Args["id"].(string)
-					for _, book := range books {
-						if book.ID == id {
-							return book, nil
-						}
+					firstArg, _ := params.Args["first"].(int)
+					afterArg, _ := params.Args["after"].(string)
+
+					// Implement pagination logic here based on 'firstArg' and 'afterArg'
+					// For simplicity, we'll use a simple offset-based pagination
+					var offset int
+					if afterArg != "" {
+						offset, _ = strconv.Atoi(afterArg)
 					}
-					return nil, nil
-				},
-			},
-			"books": &graphql.Field{
-				Type:        graphql.NewList(bookType),
-				Description: "Get all books",
-				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					return books, nil
+
+					var hasNextPage bool
+					var endCursor string
+					bookEdges := []BookEdge{}
+					for i := offset; i < offset+firstArg && i < len(books); i++ {
+						bookEdges = append(bookEdges, BookEdge{
+							Node:   books[i],
+							Cursor: strconv.Itoa(i),
+						})
+					}
+					if offset+firstArg < len(books) {
+						hasNextPage = true
+						endCursor = strconv.Itoa(offset + firstArg)
+					} else {
+						hasNextPage = false
+						endCursor = ""
+					}
+
+					pageInfo := PageInfo{
+						HasNextPage: hasNextPage,
+						EndCursor:   endCursor,
+					}
+
+					return BookConnection{
+						Edges:    bookEdges,
+						PageInfo: pageInfo,
+					}, nil
 				},
 			},
 		},

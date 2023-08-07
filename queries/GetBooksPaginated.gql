@@ -1,0 +1,16 @@
+query GetBooksPaginated {
+  books(first: 1) {
+    edges {
+      node {
+        id
+        title
+        author
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
