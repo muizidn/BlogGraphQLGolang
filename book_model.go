@@ -16,8 +16,3 @@ type BookConnection struct {
 	Edges    []BookEdge `json:"edges"`
 	PageInfo PageInfo   `json:"pageInfo"`
 }
-
-type PageInfo struct {
-	HasNextPage bool   `json:"hasNextPage"`
-	EndCursor   string `json:"endCursor"`
-}
